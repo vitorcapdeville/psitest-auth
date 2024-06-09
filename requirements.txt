@@ -1,0 +1,7 @@
+fastapi
+sqlmodel
+passlib[bcrypt]
+python-jose[cryptography]
+python-multipart
+pydantic-settings
+sqlalchemy-utils
