@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Annotated
 from uuid import uuid4
 
-from fastapi import BackgroundTasks, Body, Depends, FastAPI, HTTPException, status
+from fastapi import BackgroundTasks, Body, Depends, FastAPI, HTTPException, Query, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
 from jose import jwt
@@ -175,13 +175,14 @@ async def verify_email(
     return Token(access_token=access_token, token_type="bearer")
 
 
-@app.put("/forgot-password/{email}")
+@app.put("/forgot-password")
 async def forgot_password(
     email: str,
     session: Annotated[Session, Depends(get_session)],
     settings: Annotated[Settings, Depends(get_settings)],
     background_tasks: BackgroundTasks,
 ):
+    print(email)
     user = get_user(session, email)
     if not user:
         return {"detail": "email sent"}
@@ -201,7 +202,7 @@ To reset your password, click here:
     return {"detail": "email sent"}
 
 
-@app.put("/reset-password/{reset_password_code}")
+@app.put("/reset-password")
 async def reset_password(
     reset_password_code: str,
     password: Annotated[str, Body()],
