@@ -4,8 +4,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Annotated
 from uuid import uuid4
 
-from fastapi import BackgroundTasks, Body, Depends, FastAPI, HTTPException, Query, status
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi import BackgroundTasks, Body, Depends, FastAPI, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from jose import jwt
 from passlib.context import CryptContext
@@ -22,18 +21,6 @@ if not database_exists(engine.url):
 
 
 app = FastAPI()
-
-origins = [
-    "http://localhost:5173",
-]
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -82,12 +69,11 @@ def create_access_token(data: dict, settings: Settings, expires_delta: timedelta
     return encoded_jwt
 
 
-@app.post("/token")
-async def login_for_access_token(
+@app.post("/login")
+async def login(
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
-    settings: Annotated[Settings, Depends(get_settings)],
     session: Annotated[Session, Depends(get_session)],
-) -> Token:
+) -> User:
     user = authenticate_user(session, form_data.username, form_data.password)
     if not user:
         raise HTTPException(
@@ -95,13 +81,7 @@ async def login_for_access_token(
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
-        data={"sub": user.email, "verified": user.verified},
-        settings=settings,
-        expires_delta=access_token_expires,
-    )
-    return Token(access_token=access_token, token_type="bearer")
+    return user
 
 
 @app.post("/signup")
