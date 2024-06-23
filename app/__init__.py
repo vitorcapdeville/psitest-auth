@@ -1,8 +1,8 @@
+import secrets
 import smtplib
 import ssl
 from datetime import datetime, timedelta, timezone
 from typing import Annotated
-from uuid import uuid4
 
 from fastapi import BackgroundTasks, Body, Depends, FastAPI, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
@@ -14,7 +14,7 @@ from sqlmodel import Session, select
 from app.config import Settings
 from app.database import criar_db_e_tabelas, engine, get_session
 from app.dependencies import get_settings, get_user
-from app.models import Token, User
+from app.models import ResetPassword, Token, User, ValidateResetPasswordCode
 
 if not database_exists(engine.url):
     criar_db_e_tabelas()
@@ -27,7 +27,9 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 def get_verification_string():
-    return str(uuid4())
+    digitos = "0123456789"
+    codigo = "".join(secrets.choice(digitos) for _ in range(6))
+    return codigo
 
 
 def send_email(receiver_email: str, message: str, sender_password: str):
@@ -157,12 +159,11 @@ async def verify_email(
 
 @app.put("/forgot-password")
 async def forgot_password(
-    email: str,
+    email: Annotated[str, Body()],
     session: Annotated[Session, Depends(get_session)],
     settings: Annotated[Settings, Depends(get_settings)],
     background_tasks: BackgroundTasks,
 ):
-    print(email)
     user = get_user(session, email)
     if not user:
         return {"detail": "email sent"}
@@ -176,26 +177,39 @@ async def forgot_password(
     message = f"""\
 Subject: Password reset
 
-To reset your password, click here:
-{settings.FRONT_END_URL}/reset-password/{verification_string}"""
+To reset your password, use this code: {verification_string}
+"""
     background_tasks.add_task(send_email, user.email, message, settings.GOOGLE_APP_PASS)
     return {"detail": "email sent"}
 
 
-@app.put("/reset-password")
-async def reset_password(
-    reset_password_code: str,
-    password: Annotated[str, Body()],
+@app.post("/validate-reset-password-code")
+async def validate_reset_password_code(
+    validate_data: ValidateResetPasswordCode,
     session: Annotated[Session, Depends(get_session)],
 ):
-    statement = select(User).where(User.reset_password_code == reset_password_code)
+    statement = select(User).where(User.email == validate_data.email)
     user = session.exec(statement).one_or_none()
-    if not user:
+    if not user or user.reset_password_code != validate_data.code:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="verification string not found",
+            detail="user not found or reset code incorrect",
         )
-    user.hashed_password = get_password_hash(password)
+
+
+@app.put("/reset-password")
+async def reset_password(
+    reset_password: ResetPassword,
+    session: Annotated[Session, Depends(get_session)],
+):
+    statement = select(User).where(User.email == reset_password.email)
+    user = session.exec(statement).one_or_none()
+    if not user or user.reset_password_code != reset_password.code:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="user not found or reset code incorrect",
+        )
+    user.hashed_password = get_password_hash(reset_password.new_password)
     user.reset_password_code = None
     session.add(user)
     session.commit()

@@ -16,3 +16,12 @@ class User(SQLModel, table=True):
     verified: bool = False
     verification_string: str | None = None
     reset_password_code: str | None = None
+
+
+class ValidateResetPasswordCode(SQLModel):
+    email: str
+    code: str
+
+
+class ResetPassword(ValidateResetPasswordCode):
+    new_password: str
