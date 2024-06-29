@@ -29,7 +29,7 @@ async def get_current_user(
     token: Annotated[str, Depends(oauth2_scheme)],
     settings: Annotated[Settings, Depends(get_settings)],
     session: Annotated[Session, Depends(get_session)],
-):
+) -> str:
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -46,4 +46,4 @@ async def get_current_user(
     user = get_user(session, username=token_data.username)
     if user is None:
         raise credentials_exception
-    return user
+    return user.email

@@ -13,7 +13,7 @@ from sqlmodel import Session, select
 
 from app.config import Settings
 from app.database import criar_db_e_tabelas, engine, get_session
-from app.dependencies import get_settings, get_user
+from app.dependencies import get_settings, get_user, get_current_user
 from app.models import ResetPassword, Token, User, ValidateResetPasswordCode
 
 if not database_exists(engine.url):
@@ -75,7 +75,8 @@ def create_access_token(data: dict, settings: Settings, expires_delta: timedelta
 async def login(
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
     session: Annotated[Session, Depends(get_session)],
-) -> User:
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> Token:
     user = authenticate_user(session, form_data.username, form_data.password)
     if not user:
         raise HTTPException(
@@ -83,7 +84,13 @@ async def login(
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    return user
+    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": user.email, "verified": user.verified},
+        settings=settings,
+        expires_delta=access_token_expires,
+    )
+    return Token(access_token=access_token, token_type="bearer")
 
 
 @app.post("/signup")
@@ -201,6 +208,7 @@ async def validate_reset_password_code(
 async def reset_password(
     reset_password: ResetPassword,
     session: Annotated[Session, Depends(get_session)],
+    settings: Annotated[Settings, Depends(get_settings)],
 ):
     statement = select(User).where(User.email == reset_password.email)
     user = session.exec(statement).one_or_none()
@@ -214,3 +222,19 @@ async def reset_password(
     session.add(user)
     session.commit()
     session.refresh(user)
+
+    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": user.email, "verified": user.verified},
+        settings=settings,
+        expires_delta=access_token_expires,
+    )
+
+    return Token(access_token=access_token, token_type="bearer")
+
+
+@app.get("/users/me")
+async def get_current_user_email(
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> str:
+    return current_user
