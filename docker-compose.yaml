@@ -6,8 +6,8 @@ services:
     ports:
       - 8002:80
     networks:
-      - mynetwork
+      - psitest
     env_file: ".env"
 networks:
-  mynetwork:
+  psitest:
     external: true

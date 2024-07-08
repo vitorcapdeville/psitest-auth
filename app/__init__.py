@@ -4,7 +4,7 @@ from typing import Annotated
 from urllib.parse import quote_plus
 
 import httpx
-from fastapi import BackgroundTasks, Body, Depends, FastAPI, HTTPException, status
+from fastapi import Body, Depends, FastAPI, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from jose import jwt
 from passlib.context import CryptContext
@@ -60,7 +60,7 @@ def create_access_token(data: dict, settings: Settings, expires_delta: timedelta
     return encoded_jwt
 
 
-@app.post("/login")
+@app.post("/login", description="Login with e-mail and password.")
 async def login(
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
     session: Annotated[Session, Depends(get_session)],
@@ -82,7 +82,7 @@ async def login(
     return Token(access_token=access_token, token_type="bearer")
 
 
-@app.post("/signup")
+@app.post("/signup", description="Sign up with e-mail and password.")
 async def signup(
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
     settings: Annotated[Settings, Depends(get_settings)],
@@ -129,7 +129,7 @@ async def signup(
     return Token(access_token=access_token, token_type="bearer")
 
 
-@app.put("/verify-email")
+@app.put("/verify-email", description="Verify e-mail with verification string.")
 async def verify_email(
     verification_string: Annotated[str, Body()],
     session: Annotated[Session, Depends(get_session)],
@@ -157,13 +157,12 @@ async def verify_email(
     return Token(access_token=access_token, token_type="bearer")
 
 
-@app.put("/forgot-password")
+@app.put("/forgot-password", description="Send e-mail with reset password code.")
 async def forgot_password(
     email: Annotated[str, Body()],
     session: Annotated[Session, Depends(get_session)],
     settings: Annotated[Settings, Depends(get_settings)],
-    background_tasks: BackgroundTasks,
-):
+) -> None:
     user = get_user(session, email)
     if not user:
         return {"detail": "email sent"}
@@ -186,14 +185,12 @@ async def forgot_password(
     if response.status_code != 200:
         raise HTTPException(status_code=response.status_code, detail=response.text)
 
-    return {"detail": "email sent"}
 
-
-@app.post("/validate-reset-password-code")
+@app.post("/validate-reset-password-code", description="Validate reset password code.")
 async def validate_reset_password_code(
     validate_data: ValidateResetPasswordCode,
     session: Annotated[Session, Depends(get_session)],
-):
+) -> None:
     statement = select(User).where(User.email == validate_data.email)
     user = session.exec(statement).one_or_none()
     if not user or user.reset_password_code != validate_data.code:
@@ -203,7 +200,7 @@ async def validate_reset_password_code(
         )
 
 
-@app.put("/reset-password")
+@app.put("/reset-password", description="Reset password with reset password code and new password.")
 async def reset_password(
     reset_password: ResetPassword,
     session: Annotated[Session, Depends(get_session)],
@@ -232,7 +229,7 @@ async def reset_password(
     return Token(access_token=access_token, token_type="bearer")
 
 
-@app.get("/users/me")
+@app.get("/users/me", description="Get current user e-mail based on JWT.")
 async def get_current_user_email(
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> str:

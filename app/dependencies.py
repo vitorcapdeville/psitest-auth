@@ -8,7 +8,6 @@ from sqlmodel import Session, select
 
 from app.models import User
 
-from app.models import TokenData
 from app.config import Settings
 from app.database import get_session
 
@@ -40,10 +39,9 @@ async def get_current_user(
         username: str = payload.get("sub")
         if username is None:
             raise credentials_exception
-        token_data = TokenData(username=username)
     except JWTError:
         raise credentials_exception
-    user = get_user(session, username=token_data.username)
+    user = get_user(session, username=username)
     if user is None:
         raise credentials_exception
     return user.email
