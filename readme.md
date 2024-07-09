@@ -33,10 +33,10 @@ pip install -r requirements.txt
 Para executar o servidor, utilize o comando:
 
 ```bash
-fastapi run app --port 8000
+fastapi run app --port 8002
 ```
 
-O servidor estará disponível em `http://localhost:8000`.
+O servidor estará disponível em `http://localhost:8002`.
 
 ## Utilizando via Docker
 
